@@ -18,16 +18,23 @@
 
 package org.apache.hadoop.yarn.server.nodemanager.containermanager.monitor;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.util.StringUtils.TraditionalBinaryPrefix;
 import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
@@ -79,6 +86,14 @@ public class ContainersMonitorImpl extends AbstractService implements
   private static final long UNKNOWN_MEMORY_LIMIT = -1L;
   private int nodeCpuPercentageForYARN;
 
+  private boolean logContainerStateEvents;
+
+  private LinkedList<ContainerStateEvent> syncContainerStateEvents;
+
+  private Timer containerStateEventsTimer;
+
+  private ContainerStateEventsTask containerStateEventsTask;
+
   public ContainersMonitorImpl(ContainerExecutor exec,
       AsyncDispatcher dispatcher, Context context) {
     super("containers-monitor");
@@ -90,6 +105,11 @@ public class ContainersMonitorImpl extends AbstractService implements
     this.containersToBeAdded = new HashMap<ContainerId, ProcessTreeInfo>();
     this.containersToBeRemoved = new ArrayList<ContainerId>();
     this.monitoringThread = new MonitoringThread();
+    
+    this.containerStateEventsTimer = new Timer();
+    this.syncContainerStateEvents = new LinkedList<ContainerStateEvent>();
+    this.containerStateEventsTask = new ContainerStateEventsTask(
+        this.syncContainerStateEvents);
   }
 
   @Override
@@ -178,6 +198,13 @@ public class ContainersMonitorImpl extends AbstractService implements
                 1) + "). Thrashing might happen.");
       }
     }
+
+    this.logContainerStateEvents = conf.getBoolean(
+               YarnConfiguration.LOG_CONTAINER_STATE_EVENTS,
+               YarnConfiguration.DEFAULT_LOG_CONTAINER_STATE_EVENTS);
+    LOG.info("Logging of container state events is set to "
+        + this.logContainerStateEvents);
+    
     super.serviceInit(conf);
   }
 
@@ -205,6 +232,14 @@ public class ContainersMonitorImpl extends AbstractService implements
   protected void serviceStart() throws Exception {
     if (this.isEnabled()) {
       this.monitoringThread.start();
+    }
+    if (this.logContainerStateEvents) {
+      this.containerStateEventsTask.createContainerStateEventLog();
+      int containerStateEventsFreq = conf.getInt(
+          YarnConfiguration.LOG_CONTAINER_STATE_EVENTS_FREQUENCY_SEC,
+          YarnConfiguration.DEFAULT_LOG_CONTAINER_STATE_EVENTS_FREQUENCY_SEC);
+      this.containerStateEventsTimer.schedule(this.containerStateEventsTask,
+          containerStateEventsFreq, containerStateEventsFreq);
     }
     super.serviceStart();
   }
@@ -612,6 +647,15 @@ public class ContainersMonitorImpl extends AbstractService implements
 
   @Override
   public void handle(ContainersMonitorEvent monitoringEvent) {
+    // On Mac is possible for isEnabled to be false
+    if (this.logContainerStateEvents) {
+      if (monitoringEvent
+          .getType() == ContainersMonitorEventType.CONTAINER_STATE_EVENT) {
+        ContainerStateEvent containerStateEvent = (ContainerStateEvent) monitoringEvent;
+        if (logContainerStateEvents)
+          handleContainerStateEvent(containerStateEvent);
+      }
+    }
 
     if (!isEnabled()) {
       return;
@@ -637,6 +681,73 @@ public class ContainersMonitorImpl extends AbstractService implements
       break;
     default:
       // TODO: Wrong event.
+    }
+  }
+
+  private void handleContainerStateEvent(ContainerStateEvent event) {
+    if (!logContainerStateEvents)
+      return;
+
+    synchronized (syncContainerStateEvents) {
+      syncContainerStateEvents.add(event);
+    }
+  }
+  
+  class ContainerStateEventsTask extends TimerTask {
+    private FSDataOutputStream containerStateEventOutput;
+    private List<ContainerStateEvent> syncEvents;
+    private List<ContainerStateEvent> timerEvents;
+
+    public ContainerStateEventsTask(List<ContainerStateEvent> syncEvents) {
+      this.syncEvents = syncEvents;
+      this.timerEvents = new LinkedList<ContainerStateEvent>();
+    }
+
+    public void run() {
+      synchronized(syncEvents) {
+        timerEvents.addAll(syncEvents);
+        syncEvents.clear();
+      }
+
+      for (ContainerStateEvent cse : timerEvents) {
+        try {
+          String msg = cse.toString() + "\n";
+          containerStateEventOutput.write(msg.getBytes());
+        } catch (IOException e) {
+          LOG.error(e.getMessage());
+        }
+      }
+
+      try {
+        containerStateEventOutput.hflush();
+      } catch (IOException e) {
+        LOG.error(e.getMessage());
+      }
+
+      timerEvents.clear();
+    }
+
+    public void createContainerStateEventLog() {
+      containerStateEventOutput = null;
+      String hostname = context.getNodeId().getHost();
+      String eventFilename = hostname + "_container_state_events.csv";
+      String monitoringPath = conf.get(YarnConfiguration.LOG_CONTAINER_STATE_EVENTS_PATH,
+              YarnConfiguration.DEFAULT_LOG_CONTAINER_STATE_EVENTS_PATH);
+      Path absolutePath = new Path(conf.get("fs.default.name") + "/"
+          + monitoringPath + "/" + eventFilename);
+      FileSystem fs = null;
+      try {
+        fs = FileSystem.get(new Configuration());
+        this.containerStateEventOutput = fs.create(absolutePath, (short) 1);
+      } catch (IOException e) {
+        LOG.error(e.getMessage());
+      }
+ 
+      if (this.containerStateEventOutput == null) {
+        LOG.error("Error when attempting to create output for logging container state events");
+      } else {
+        LOG.info("Logging container state events to: " + absolutePath);
+      }
     }
   }
 }

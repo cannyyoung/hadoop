@@ -66,7 +66,9 @@ import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.shar
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.sharedcache.SharedCacheUploadEventType;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.loghandler.event.LogHandlerContainerFinishedEvent;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.monitor.ContainerStartMonitoringEvent;
+import org.apache.hadoop.yarn.server.nodemanager.containermanager.monitor.ContainerStateEvent;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.monitor.ContainerStopMonitoringEvent;
+import org.apache.hadoop.yarn.server.nodemanager.containermanager.monitor.ContainersMonitorEventType;
 import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
 import org.apache.hadoop.yarn.server.nodemanager.recovery.NMStateStoreService;
 import org.apache.hadoop.yarn.server.nodemanager.recovery.NMStateStoreService.RecoveredContainerStatus;
@@ -123,6 +125,7 @@ public class ContainerImpl implements Container {
       RecoveredContainerStatus.REQUESTED;
   // whether container was marked as killed after recovery
   private boolean recoveredAsKilled = false;
+  private boolean logContainerStateEvents;
 
   public ContainerImpl(Configuration conf, Dispatcher dispatcher,
       NMStateStoreService stateStore, ContainerLaunchContext launchContext,
@@ -144,6 +147,10 @@ public class ContainerImpl implements Container {
     this.writeLock = readWriteLock.writeLock();
 
     stateMachine = stateMachineFactory.make(this);
+
+    this.logContainerStateEvents = conf.getBoolean(
+        YarnConfiguration.LOG_CONTAINER_STATE_EVENTS,
+        YarnConfiguration.DEFAULT_LOG_CONTAINER_STATE_EVENTS);
   }
 
   // constructor for a recovered container
@@ -564,8 +571,13 @@ public class ContainerImpl implements Container {
     @Override
     public ContainerState transition(ContainerImpl container,
         ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       if (container.recoveredStatus == RecoveredContainerStatus.COMPLETED) {
         container.sendFinishedEvents();
+        container.logStateEvent(classname, event, preState,
+            ContainerState.DONE);
         return ContainerState.DONE;
       } else if (container.recoveredAsKilled &&
           container.recoveredStatus == RecoveredContainerStatus.REQUESTED) {
@@ -577,6 +589,8 @@ public class ContainerImpl implements Container {
             container.containerId);
         container.metrics.releaseContainer(container.resource);
         container.sendFinishedEvents();
+        container.logStateEvent(classname, event, preState,
+            ContainerState.DONE);
         return ContainerState.DONE;
       }
 
@@ -638,6 +652,8 @@ public class ContainerImpl implements Container {
           LOG.warn("Failed to parse resource-request", e);
           container.cleanup();
           container.metrics.endInitingContainer();
+          container.logStateEvent(classname, event, preState,
+              ContainerState.LOCALIZATION_FAILED);
           return ContainerState.LOCALIZATION_FAILED;
         }
         Map<LocalResourceVisibility, Collection<LocalResourceRequest>> req =
@@ -655,10 +671,14 @@ public class ContainerImpl implements Container {
         
         container.dispatcher.getEventHandler().handle(
               new ContainerLocalizationRequestEvent(container, req));
+        // container.logStateEvent(classname, event, preState,
+        // ContainerState.LOCALIZING);
         return ContainerState.LOCALIZING;
       } else {
         container.sendLaunchEvent();
         container.metrics.endInitingContainer();
+        container.logStateEvent(classname, event, preState,
+            ContainerState.LOCALIZED);
         return ContainerState.LOCALIZED;
       }
     }
@@ -695,6 +715,9 @@ public class ContainerImpl implements Container {
     @Override
     public ContainerState transition(ContainerImpl container,
         ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       ContainerResourceLocalizedEvent rsrcEvent = (ContainerResourceLocalizedEvent) event;
       LocalResourceRequest resourceRequest = rsrcEvent.getResource();
       Path location = rsrcEvent.getLocation();
@@ -704,6 +727,8 @@ public class ContainerImpl implements Container {
                  " for container " + container.containerId);
         assert false;
         // fail container?
+        container.logStateEvent(classname, event, preState,
+            ContainerState.LOCALIZING);
         return ContainerState.LOCALIZING;
       }
       container.localizedResources.put(location, syms);
@@ -714,6 +739,8 @@ public class ContainerImpl implements Container {
         container.resourcesToBeUploaded.put(resourceRequest, location);
       }
       if (!container.pendingResources.isEmpty()) {
+        container.logStateEvent(classname, event, preState,
+            ContainerState.LOCALIZING);
         return ContainerState.LOCALIZING;
       }
 
@@ -740,6 +767,8 @@ public class ContainerImpl implements Container {
                 SharedCacheUploadEventType.UPLOAD));
       }
 
+      container.logStateEvent(classname, event, preState,
+          ContainerState.LOCALIZED);
       return ContainerState.LOCALIZED;
     }
   }
@@ -752,12 +781,17 @@ public class ContainerImpl implements Container {
     @SuppressWarnings("unchecked")
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+      container.logStateEvent(classname, event, preState,
+          ContainerState.RUNNING);
+
       container.sendContainerMonitorStartEvent();
       container.metrics.runningContainer();
       container.wasLaunched  = true;
       long duration = clock.getTime() - container.containerLaunchStartTime;
       container.metrics.addContainerLaunchDuration(duration);
-
+      	
       if (container.recoveredAsKilled) {
         LOG.info("Killing " + container.containerId
             + " due to recovered as killed");
@@ -784,6 +818,9 @@ public class ContainerImpl implements Container {
 
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       // Set exit code to 0 on success    	
       container.exitCode = 0;
     	
@@ -796,6 +833,8 @@ public class ContainerImpl implements Container {
       }
 
       container.cleanup();
+      container.logStateEvent(classname, event, preState,
+          ContainerState.EXITED_WITH_SUCCESS);
     }
   }
 
@@ -814,6 +853,9 @@ public class ContainerImpl implements Container {
 
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       ContainerExitEvent exitEvent = (ContainerExitEvent) event;
       container.exitCode = exitEvent.getExitCode();
       if (exitEvent.getDiagnosticInfo() != null) {
@@ -830,6 +872,8 @@ public class ContainerImpl implements Container {
       }
 
       container.cleanup();
+      container.logStateEvent(classname, event, preState,
+          ContainerState.EXITED_WITH_FAILURE);
     }
   }
 
@@ -843,8 +887,14 @@ public class ContainerImpl implements Container {
 
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       super.transition(container, event);
       container.addDiagnostics("Killed by external signal\n");
+
+      container.logStateEvent(classname, event, preState,
+          ContainerState.EXITED_WITH_FAILURE);
     }
   }
 
@@ -856,6 +906,8 @@ public class ContainerImpl implements Container {
       SingleArcTransition<ContainerImpl, ContainerEvent> {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
 
       ContainerResourceFailedEvent rsrcFailedEvent =
           (ContainerResourceFailedEvent) event;
@@ -865,6 +917,9 @@ public class ContainerImpl implements Container {
       // resources.
       container.cleanup();
       container.metrics.endInitingContainer();
+
+      container.logStateEvent(classname, event, preState,
+          ContainerState.LOCALIZATION_FAILED);
     }
   }
 
@@ -876,6 +931,9 @@ public class ContainerImpl implements Container {
       SingleArcTransition<ContainerImpl, ContainerEvent> {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       // Inform the localizer to decrement reference counts and cleanup
       // resources.
       container.cleanup();
@@ -884,6 +942,9 @@ public class ContainerImpl implements Container {
       container.exitCode = killEvent.getContainerExitStatus();
       container.addDiagnostics(killEvent.getDiagnostic(), "\n");
       container.addDiagnostics("Container is killed before being launched.\n");
+
+      container.logStateEvent(classname, event, preState,
+          ContainerState.KILLING);
     }
   }
 
@@ -895,6 +956,9 @@ public class ContainerImpl implements Container {
       SingleArcTransition<ContainerImpl, ContainerEvent> {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      //ContainerState preState = container.getContainerState();
+      //String classname = this.getClass().getSimpleName();
+
       ContainerResourceLocalizedEvent rsrcEvent = (ContainerResourceLocalizedEvent) event;
       List<String> syms =
           container.pendingResources.remove(rsrcEvent.getResource());
@@ -906,6 +970,9 @@ public class ContainerImpl implements Container {
         return;
       }
       container.localizedResources.put(rsrcEvent.getLocation(), syms);
+
+      //container.logStateEvent(classname, event, preState,
+      //    ContainerState.KILLING);
     }
   }
 
@@ -919,6 +986,9 @@ public class ContainerImpl implements Container {
       SingleArcTransition<ContainerImpl, ContainerEvent> {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       // Kill the process/process-grp
       container.dispatcher.getEventHandler().handle(
           new ContainersLauncherEvent(container,
@@ -926,6 +996,9 @@ public class ContainerImpl implements Container {
       ContainerKillEvent killEvent = (ContainerKillEvent) event;
       container.addDiagnostics(killEvent.getDiagnostic(), "\n");
       container.exitCode = killEvent.getContainerExitStatus();
+      
+      container.logStateEvent(classname, event, preState,
+          ContainerState.KILLING);
     }
   }
 
@@ -937,6 +1010,9 @@ public class ContainerImpl implements Container {
       SingleArcTransition<ContainerImpl, ContainerEvent> {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       ContainerExitEvent exitEvent = (ContainerExitEvent) event;
       if (container.hasDefaultExitCode()) {
         container.exitCode = exitEvent.getExitCode();
@@ -949,6 +1025,11 @@ public class ContainerImpl implements Container {
       // The process/process-grp is killed. Decrement reference counts and
       // cleanup resources
       container.cleanup();
+
+      boolean success = container.exitCode != ContainerExitStatus.ABORTED
+          && !exitEvent.getDiagnosticInfo().contains("fail");
+      container.logStateEvent(classname, event, preState,
+          ContainerState.CONTAINER_CLEANEDUP_AFTER_KILL, success);
     }
   }
 
@@ -982,6 +1063,9 @@ public class ContainerImpl implements Container {
   static class KillOnNewTransition extends ContainerDoneTransition {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       ContainerKillEvent killEvent = (ContainerKillEvent) event;
       container.exitCode = killEvent.getContainerExitStatus();
       container.addDiagnostics(killEvent.getDiagnostic(), "\n");
@@ -992,6 +1076,8 @@ public class ContainerImpl implements Container {
           container.containerId.getApplicationAttemptId().getApplicationId(),
           container.containerId);
       super.transition(container, event);
+
+      container.logStateEvent(classname, event, preState, ContainerState.DONE);
     }
   }
 
@@ -1003,6 +1089,9 @@ public class ContainerImpl implements Container {
       ContainerDoneTransition {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       container.metrics.failedContainer();
       NMAuditLogger.logFailure(container.user,
           AuditConstants.FINISH_FAILED_CONTAINER, "ContainerImpl",
@@ -1010,6 +1099,8 @@ public class ContainerImpl implements Container {
           container.containerId.getApplicationAttemptId().getApplicationId(),
           container.containerId);
       super.transition(container, event);
+
+      container.logStateEvent(classname, event, preState, ContainerState.DONE);
     }
   }
 
@@ -1021,6 +1112,9 @@ public class ContainerImpl implements Container {
       ContainerDoneTransition {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       container.metrics.endRunningContainer();
       container.metrics.completedContainer();
       NMAuditLogger.logSuccess(container.user,
@@ -1028,6 +1122,8 @@ public class ContainerImpl implements Container {
           container.containerId.getApplicationAttemptId().getApplicationId(),
           container.containerId);
       super.transition(container, event);
+
+      container.logStateEvent(classname, event, preState, ContainerState.DONE);
     }
   }
 
@@ -1039,6 +1135,9 @@ public class ContainerImpl implements Container {
       ContainerDoneTransition {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       if (container.wasLaunched) {
         container.metrics.endRunningContainer();
       }
@@ -1049,6 +1148,8 @@ public class ContainerImpl implements Container {
           container.containerId.getApplicationAttemptId().getApplicationId(),
           container.containerId);
       super.transition(container, event);
+
+      container.logStateEvent(classname, event, preState, ContainerState.DONE);
     }
   }
 
@@ -1060,12 +1161,17 @@ public class ContainerImpl implements Container {
       ContainerDoneTransition {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       container.metrics.killedContainer();
       NMAuditLogger.logSuccess(container.user,
           AuditConstants.FINISH_KILLED_CONTAINER, "ContainerImpl",
           container.containerId.getApplicationAttemptId().getApplicationId(),
           container.containerId);
       super.transition(container, event);
+
+      container.logStateEvent(classname, event, preState, ContainerState.DONE);
     }
   }
 
@@ -1077,6 +1183,9 @@ public class ContainerImpl implements Container {
       ContainerDoneTransition {
     @Override
     public void transition(ContainerImpl container, ContainerEvent event) {
+      ContainerState preState = container.getContainerState();
+      String classname = this.getClass().getSimpleName();
+
       if (container.wasLaunched) {
         container.metrics.endRunningContainer();
       }
@@ -1086,6 +1195,8 @@ public class ContainerImpl implements Container {
           container.containerId.getApplicationAttemptId().getApplicationId(),
           container.containerId);
       super.transition(container, event);
+
+      container.logStateEvent(classname, event, preState, ContainerState.DONE);
     }
   }
 
@@ -1134,6 +1245,23 @@ public class ContainerImpl implements Container {
     } finally {
       this.writeLock.unlock();
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  public void logStateEvent(String classname, ContainerEvent event,
+      ContainerState preState, ContainerState postState, Boolean success) {
+    if (!this.logContainerStateEvents)
+      return;
+
+    this.dispatcher.getEventHandler()
+        .handle(new ContainerStateEvent(this.containerId,
+            ContainersMonitorEventType.CONTAINER_STATE_EVENT, classname, event,
+            preState, postState, success));
+  }
+
+  public void logStateEvent(String classname, ContainerEvent event,
+      ContainerState preState, ContainerState postState) {
+    logStateEvent(classname, event, preState, postState, null);
   }
 
   @Override

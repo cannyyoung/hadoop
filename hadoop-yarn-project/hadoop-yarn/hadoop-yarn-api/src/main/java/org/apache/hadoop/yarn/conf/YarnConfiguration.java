@@ -1806,6 +1806,27 @@ public class YarnConfiguration extends Configuration {
       + "enabled";
   public static final boolean DEFAULT_NODE_LABELS_ENABLED = false;
 
+  /**
+   * Log container state events to HDFS, by default this is disabled
+   */
+  public static final String LOG_CONTAINER_STATE_EVENTS = NM_PREFIX
+      + "container-state-events.log.enabled";
+  public static final boolean DEFAULT_LOG_CONTAINER_STATE_EVENTS = false;
+
+  /**
+   * Log container state events to HDFS, by default this is disabled
+   */
+  public static final String LOG_CONTAINER_STATE_EVENTS_PATH = NM_PREFIX
+      + "container-state-events.log.path";
+  public static final String DEFAULT_LOG_CONTAINER_STATE_EVENTS_PATH = "/container-state-event-logs";
+
+  /**
+   * Frequency (in seconds) that container state events are logged to HDFS
+   */
+  public static final String LOG_CONTAINER_STATE_EVENTS_FREQUENCY_SEC = NM_PREFIX
+      + "container-state-events.log.frequency-sec";
+  public static final int DEFAULT_LOG_CONTAINER_STATE_EVENTS_FREQUENCY_SEC = 2;
+  
   public YarnConfiguration() {
     super();
   }
