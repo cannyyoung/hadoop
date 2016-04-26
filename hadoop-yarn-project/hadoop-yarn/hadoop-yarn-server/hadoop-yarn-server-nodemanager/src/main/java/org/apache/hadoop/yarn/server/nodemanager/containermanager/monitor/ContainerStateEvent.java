@@ -21,7 +21,7 @@ public class ContainerStateEvent extends ContainersMonitorEvent {
     this.event = event;
     this.preState = preState;
     this.postState = postState;
-    this.timestamp = System.nanoTime();
+    this.timestamp = System.currentTimeMillis();
     this.classname = classname;
     this.success = success;
   }

@@ -82,6 +82,8 @@ import org.apache.hadoop.yarn.util.Clock;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.SystemClock;
 
+import edu.brown.cs.systems.netro.NetroStartUpEvents;
+
 public class ContainerImpl implements Container {
 
   private final Lock readLock;
@@ -1250,15 +1252,19 @@ public class ContainerImpl implements Container {
   @SuppressWarnings("unchecked")
   public void logStateEvent(String classname, ContainerEvent event,
       ContainerState preState, ContainerState postState, Boolean success) {
-    if (!this.logContainerStateEvents)
+   if (!this.logContainerStateEvents)
       return;
+
+    NetroStartUpEvents.logContainerStateEvent(this.containerId.toString(),
+        classname, event.toString(), preState.toString(), postState.toString(),
+        success);
 
     this.dispatcher.getEventHandler()
         .handle(new ContainerStateEvent(this.containerId,
             ContainersMonitorEventType.CONTAINER_STATE_EVENT, classname, event,
             preState, postState, success));
   }
-
+  
   public void logStateEvent(String classname, ContainerEvent event,
       ContainerState preState, ContainerState postState) {
     logStateEvent(classname, event, preState, postState, null);
