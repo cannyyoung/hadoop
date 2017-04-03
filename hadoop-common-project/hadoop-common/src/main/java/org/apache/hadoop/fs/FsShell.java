@@ -37,7 +37,11 @@ import org.apache.hadoop.tools.TableListing;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
+import com.typesafe.config.ConfigFactory;
+
 import edu.brown.cs.systems.xtrace.XTrace;
+import edu.brown.cs.systems.xtrace.XTraceBaggageInterface;
+import edu.brown.cs.systems.xtrace.baggage.XTraceBaggage;
 import edu.brown.cs.systems.xtrace.logging.XTraceLogger;
 
 /** Provide command line access to a FileSystem. */
@@ -284,6 +288,16 @@ public class FsShell extends Configured implements Tool {
     } else {
       String cmd = argv[0];
       Command instance = null;
+      
+      // For now, always trace the FS shell
+      boolean trace_fsshell = true;
+      if (ConfigFactory.load().hasPath("hadoop.xtrace.trace_fsshell")) {
+        trace_fsshell = ConfigFactory.load().getBoolean("hadoop.xtrace.trace_fsshell");
+      }
+      if (trace_fsshell && !XTraceBaggageInterface.hasTaskID()) {
+        XTrace.startTask(true);        
+      }
+      
       XTRACE.tag("Executing command", StringUtils.join(argv, " "));
       try {
         instance = commandFactory.getInstance(cmd);
