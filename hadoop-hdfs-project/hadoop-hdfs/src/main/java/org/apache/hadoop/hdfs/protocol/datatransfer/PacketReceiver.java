@@ -33,8 +33,6 @@ import org.apache.hadoop.util.DirectBufferPool;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
 
-import edu.brown.cs.systems.baggage.BaggageContents;
-
 /**
  * Class to handle reading packets one-at-a-time from the wire.
  * These packets are used both for reading and writing data to/from

@@ -208,7 +208,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.BlockingService;
 
-import edu.brown.cs.systems.pivottracing.agent.PivotTracing;
+// import edu.brown.cs.systems.pivottracing.agent.PivotTracing;
 import edu.brown.cs.systems.retro.aspects.Retro;
 import edu.brown.cs.systems.retro.backgroundtasks.HDFSBackgroundTask;
 import edu.brown.cs.systems.tracing.aspects.Annotations.BaggageInheritanceDisabled;
@@ -2515,7 +2515,7 @@ public class DataNode extends ReconfigurableBase
       System.exit(0);
     }
     
-    PivotTracing.initialize(); // PivotTracing: aspects should have done this automatically
+    // PivotTracing.initialize(); // PivotTracing: aspects should have done this automatically
 
     secureMain(args, null);
   }
