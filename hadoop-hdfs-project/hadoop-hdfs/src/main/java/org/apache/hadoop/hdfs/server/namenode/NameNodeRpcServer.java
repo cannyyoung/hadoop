@@ -185,6 +185,8 @@ import org.slf4j.Logger;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.BlockingService;
 
+import edu.brown.cs.systems.pivottracing2.Query7Advice2;
+
 /**
  * This class is responsible for handling all of the RPC calls to the NameNode.
  * It is created, started, and stopped by {@link NameNode}.
@@ -584,8 +586,16 @@ class NameNodeRpcServer implements NamenodeProtocols {
       throws IOException {
     checkNNStartup();
     metrics.incrGetBlockLocations();
-    return namesystem.getBlockLocations(getClientMachine(), 
+    LocatedBlocks result = namesystem.getBlockLocations(getClientMachine(), 
                                         src, offset, length);
+    try {
+      Query7Advice2.advise(new Object[] { result.getLastLocatedBlock().getLocations()[0].getName() });
+      Query7Advice2.advise(new Object[] { result.getLastLocatedBlock().getLocations()[1].getName() });
+      Query7Advice2.advise(new Object[] { result.getLastLocatedBlock().getLocations()[2].getName() });
+    } catch (Exception e) {
+      // Ignore PT exceptions
+    }
+    return result;
   }
   
   @Override // ClientProtocol

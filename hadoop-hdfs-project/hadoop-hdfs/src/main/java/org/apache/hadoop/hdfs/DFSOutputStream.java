@@ -112,6 +112,8 @@ import com.google.common.cache.RemovalNotification;
 
 import edu.brown.cs.systems.baggage.Baggage;
 import edu.brown.cs.systems.baggage.DetachedBaggage;
+import edu.brown.cs.systems.pivottracing2.Query7Advice1;
+import edu.brown.cs.systems.tracing.Utils;
 
 
 /****************************************************************
@@ -1679,6 +1681,11 @@ public class DFSOutputStream extends FSOutputSummer
     TraceScope scope =
         dfsClient.getPathTraceScope("newStreamForCreate", src);
     try {
+      Query7Advice1.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Swallow PT exceptions
+    }
+    try {
       HdfsFileStatus stat = null;
 
       // Retry the create if we get a RetryStartFileException up to a maximum
@@ -1758,6 +1765,11 @@ public class DFSOutputStream extends FSOutputSummer
       String[] favoredNodes) throws IOException {
     TraceScope scope =
         dfsClient.getPathTraceScope("newStreamForAppend", src);
+    try {
+      Query7Advice1.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Swallow PT exceptions
+    }
     try {
       final DFSOutputStream out = new DFSOutputStream(dfsClient, src, flags,
           progress, lastBlock, stat, checksum);

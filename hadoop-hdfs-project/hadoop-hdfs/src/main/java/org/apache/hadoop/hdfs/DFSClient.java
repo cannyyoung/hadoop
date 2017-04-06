@@ -235,6 +235,8 @@ import com.google.common.collect.Lists;
 import com.google.common.net.InetAddresses;
 
 import edu.brown.cs.systems.baggage.Baggage;
+import edu.brown.cs.systems.pivottracing2.Query7Advice1;
+import edu.brown.cs.systems.tracing.Utils;
 
 /********************************************************
  * DFSClient can connect to a Hadoop Filesystem and 
@@ -1524,6 +1526,11 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     checkOpen();
     //    Get block info from namenode
     TraceScope scope = getPathTraceScope("newDFSInputStream", src);
+    try {
+      Query7Advice1.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Swallow PT exceptions
+    }
     try {
       return new DFSInputStream(this, src, verifyChecksum);
     } finally {

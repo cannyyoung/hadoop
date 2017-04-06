@@ -43,6 +43,8 @@ import org.apache.hadoop.hdfs.shortcircuit.ShortCircuitShm.SlotId;
 import org.apache.htrace.TraceScope;
 
 import edu.brown.cs.systems.baggage.Baggage;
+import edu.brown.cs.systems.pivottracing2.Query7Advice3;
+import edu.brown.cs.systems.tracing.Utils;
 
 /** Receiver */
 @InterfaceAudience.Private
@@ -116,6 +118,11 @@ public abstract class Receiver implements DataTransferProtocol {
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
     try {
+      Query7Advice3.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Ignore PT exception
+    }
+    try {
       readBlock(PBHelper.convert(proto.getHeader().getBaseHeader().getBlock()),
         PBHelper.convert(proto.getHeader().getBaseHeader().getToken()),
         proto.getHeader().getClientName(),
@@ -137,6 +144,11 @@ public abstract class Receiver implements DataTransferProtocol {
     final DatanodeInfo[] targets = PBHelper.convert(proto.getTargetsList());
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
+    try {
+      Query7Advice3.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Ignore PT exception
+    }
     try {
       writeBlock(PBHelper.convert(proto.getHeader().getBaseHeader().getBlock()),
           PBHelper.convertStorageType(proto.getStorageType()),
@@ -170,6 +182,11 @@ public abstract class Receiver implements DataTransferProtocol {
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
     try {
+      Query7Advice3.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Ignore PT exception
+    }
+    try {
       transferBlock(PBHelper.convert(proto.getHeader().getBaseHeader().getBlock()),
           PBHelper.convert(proto.getHeader().getBaseHeader().getToken()),
           proto.getHeader().getClientName(),
@@ -190,6 +207,11 @@ public abstract class Receiver implements DataTransferProtocol {
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
     try {
+      Query7Advice3.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Ignore PT exception
+    }
+    try {
       requestShortCircuitFds(PBHelper.convert(proto.getHeader().getBlock()),
           PBHelper.convert(proto.getHeader().getToken()),
           slotId, proto.getMaxVersion(),
@@ -208,6 +230,11 @@ public abstract class Receiver implements DataTransferProtocol {
     TraceScope traceScope = continueTraceSpan(proto.getTraceInfo(),
         proto.getClass().getSimpleName());
     try {
+      Query7Advice3.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Ignore PT exception
+    }
+    try {
       releaseShortCircuitFds(PBHelper.convert(proto.getSlotId()));
     } finally {
       if (traceScope != null) traceScope.close();
@@ -222,6 +249,11 @@ public abstract class Receiver implements DataTransferProtocol {
     TraceScope traceScope = continueTraceSpan(proto.getTraceInfo(),
         proto.getClass().getSimpleName());
     try {
+      Query7Advice3.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Ignore PT exception
+    }
+    try {
       requestShortCircuitShm(proto.getClientName());
     } finally {
       if (traceScope != null) traceScope.close();
@@ -234,6 +266,11 @@ public abstract class Receiver implements DataTransferProtocol {
     Baggage.join(proto.getHeader().getBaggage());
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
+    try {
+      Query7Advice3.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Ignore PT exception
+    }
     try {
       replaceBlock(PBHelper.convert(proto.getHeader().getBlock()),
           PBHelper.convertStorageType(proto.getStorageType()),
@@ -252,6 +289,11 @@ public abstract class Receiver implements DataTransferProtocol {
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
     try {
+      Query7Advice3.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Ignore PT exception
+    }
+    try {
       copyBlock(PBHelper.convert(proto.getHeader().getBlock()),
           PBHelper.convert(proto.getHeader().getToken()));
     } finally {
@@ -265,6 +307,11 @@ public abstract class Receiver implements DataTransferProtocol {
     Baggage.join(proto.getHeader().getBaggage());
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
+    try {
+      Query7Advice3.advise(new Object[] { Utils.getHost() });
+    } catch (Exception e) {
+      // Ignore PT exception
+    }
     try {
     blockChecksum(PBHelper.convert(proto.getHeader().getBlock()),
         PBHelper.convert(proto.getHeader().getToken()));
