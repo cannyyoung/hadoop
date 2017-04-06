@@ -166,6 +166,17 @@ public abstract class ProtoUtil {
   public static RpcRequestHeaderProto makeRpcRequestHeader(RPC.RpcKind rpcKind,
       RpcRequestHeaderProto.OperationProto operation, int callId,
       int retryCount, byte[] uuid) {
+    RpcRequestHeaderProto.Builder result = makeRpcRequestHeaderBuilder(rpcKind, operation, callId, retryCount, uuid);
+    
+    /* Baggage: fork the current baggage */
+    result.setBaggage(Baggage.fork().toByteString());
+
+    return result.build();
+  }
+ 
+  public static RpcRequestHeaderProto.Builder makeRpcRequestHeaderBuilder(RPC.RpcKind rpcKind,
+      RpcRequestHeaderProto.OperationProto operation, int callId,
+      int retryCount, byte[] uuid) {
     RpcRequestHeaderProto.Builder result = RpcRequestHeaderProto.newBuilder();
     result.setRpcKind(convert(rpcKind)).setRpcOp(operation).setCallId(callId)
         .setRetryCount(retryCount).setClientId(ByteString.copyFrom(uuid));
@@ -178,9 +189,6 @@ public abstract class ProtoUtil {
           .setTraceId(s.getTraceId()).build());
     }
     
-    /* Baggage: fork the current baggage */
-    result.setBaggage(Baggage.fork().toByteString());
-
-    return result.build();
+    return result;
   }
 }

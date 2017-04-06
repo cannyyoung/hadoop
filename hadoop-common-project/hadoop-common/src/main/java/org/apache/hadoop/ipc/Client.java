@@ -74,6 +74,7 @@ import org.apache.hadoop.ipc.RPC.RpcKind;
 import org.apache.hadoop.ipc.Server.AuthProtocol;
 import org.apache.hadoop.ipc.protobuf.IpcConnectionContextProtos.IpcConnectionContextProto;
 import org.apache.hadoop.ipc.protobuf.RpcHeaderProtos.RpcRequestHeaderProto;
+import org.apache.hadoop.ipc.protobuf.RpcHeaderProtos.RpcRequestHeaderProto.Builder;
 import org.apache.hadoop.ipc.protobuf.RpcHeaderProtos.RpcRequestHeaderProto.OperationProto;
 import org.apache.hadoop.ipc.protobuf.RpcHeaderProtos.RpcResponseHeaderProto;
 import org.apache.hadoop.ipc.protobuf.RpcHeaderProtos.RpcResponseHeaderProto.RpcErrorCodeProto;
@@ -1010,6 +1011,62 @@ public class Client {
             + connections.size());
     }
 
+   
+    @BaggageInheritanceDisabled // we manually propagate baggage to this runnable
+    private class SendParamsRunnable implements Runnable {
+      
+      private final Call call;
+      public volatile DetachedBaggage baggage;
+      private final DataOutputBuffer payloadBuffer;
+      private final RpcRequestHeaderProto.Builder header;
+      
+      public SendParamsRunnable(final Call call, DataOutputBuffer payloadBuffer, Builder header) throws IOException {
+        this.call = call;
+        this.header = header;
+        this.payloadBuffer = payloadBuffer;
+        this.baggage = Baggage.stop();
+      }
+      
+      @Override
+      public void run() {
+        Baggage.start(baggage);
+        final DataOutputBuffer headerBuffer = new DataOutputBuffer();
+        try {
+          synchronized (Connection.this.out) {
+            if (shouldCloseConnection.get()) {
+              return;
+            }
+            
+            if (LOG.isDebugEnabled())
+              LOG.debug(getName() + " sending #" + call.id);
+            
+            header.setBaggage(Baggage.fork().toByteString());
+            header.build().writeDelimitedTo(headerBuffer);
+     
+            int totalLength = headerBuffer.getLength() + payloadBuffer.getLength();
+            out.writeInt(totalLength); // Total Length
+            out.write(headerBuffer.getData(), 0, headerBuffer.getLength());// RpcRequestHeader
+            out.write(payloadBuffer.getData(), 0, payloadBuffer.getLength());// RpcRequest
+            out.flush();
+          }
+        } catch (IOException e) {
+          // exception at this point would leave the connection in an
+          // unrecoverable state (eg half a call left on the wire).
+          // So, close the connection, killing any outstanding calls
+          markClosed(e);
+        } finally {
+          //the buffer is just an in-memory buffer, but it is still polite to
+          // close early
+          IOUtils.closeStream(headerBuffer);
+          IOUtils.closeStream(payloadBuffer);
+          baggage = Baggage.stop();
+        }
+      }
+      
+    }
+    
+    
+
     /** Initiates a rpc call by sending the rpc request to the remote server.
      * Note: this is not called from the Connection thread, but by other
      * threads.
@@ -1033,48 +1090,20 @@ public class Client {
       // 2) RpcRequest
       //
       // Items '1' and '2' are prepared here. 
-      final DataOutputBuffer d = new DataOutputBuffer();
-      RpcRequestHeaderProto header = ProtoUtil.makeRpcRequestHeader(
+      final DataOutputBuffer payloadBuffer = new DataOutputBuffer();
+      final RpcRequestHeaderProto.Builder header = ProtoUtil.makeRpcRequestHeaderBuilder(
           call.rpcKind, OperationProto.RPC_FINAL_PACKET, call.id, call.retry,
           clientId);
-      header.writeDelimitedTo(d);
-      call.rpcRequest.write(d);
+      call.rpcRequest.write(payloadBuffer);
 
       synchronized (sendRpcRequestLock) {
-        Future<?> senderFuture = sendParamsExecutor.submit(new Runnable() {
-          @Override
-          public void run() {
-            try {
-              synchronized (Connection.this.out) {
-                if (shouldCloseConnection.get()) {
-                  return;
-                }
-                
-                if (LOG.isDebugEnabled())
-                  LOG.debug(getName() + " sending #" + call.id);
-         
-                byte[] data = d.getData();
-                int totalLength = d.getLength();
-                out.writeInt(totalLength); // Total Length
-                out.write(data, 0, totalLength);// RpcRequestHeader + RpcRequest
-                out.flush();
-              }
-            } catch (IOException e) {
-              // exception at this point would leave the connection in an
-              // unrecoverable state (eg half a call left on the wire).
-              // So, close the connection, killing any outstanding calls
-              markClosed(e);
-            } finally {
-              //the buffer is just an in-memory buffer, but it is still polite to
-              // close early
-              IOUtils.closeStream(d);
-            }
-          }
-        });
-      
+        SendParamsRunnable sendParamsRunnable = new SendParamsRunnable(call, payloadBuffer, header);
+        Future<?> senderFuture = sendParamsExecutor.submit(sendParamsRunnable);
         try {
           senderFuture.get();
+          Baggage.start(sendParamsRunnable.baggage);
         } catch (ExecutionException e) {
+          Baggage.start(sendParamsRunnable.baggage);
           Throwable cause = e.getCause();
           
           // cause should only be a RuntimeException as the Runnable above
