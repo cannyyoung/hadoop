@@ -30,9 +30,11 @@ import org.apache.hadoop.hdfs.util.ByteBufferOutputStream;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.Ints;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import edu.brown.cs.systems.baggage.Baggage;
+import edu.brown.cs.systems.baggage.DetachedBaggage;
 
 /**
  * Header data for each packet that goes through the read/write pipelines.
@@ -53,6 +55,7 @@ import edu.brown.cs.systems.baggage.Baggage;
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
 public class PacketHeader {
+  private static final int MAX_BAGGAGE_SIZE = 2048;
   private static final int MAX_PROTO_SIZE = 
     PacketHeaderProto.newBuilder()
       .setOffsetInBlock(0)
@@ -60,7 +63,8 @@ public class PacketHeader {
       .setLastPacketInBlock(false)
       .setDataLen(0)
       .setSyncBlock(false)
-      .build().getSerializedSize() + 1024; // Baggage: hack to include baggage in packet header
+      .setBaggage(ByteString.copyFrom(new byte[MAX_BAGGAGE_SIZE]))
+      .build().getSerializedSize(); // Baggage: include baggage in packet header
   public static final int PKT_LENGTHS_LEN =
       Ints.BYTES + Shorts.BYTES;
   public static final int PKT_MAX_HEADER_LEN =
@@ -88,7 +92,7 @@ public class PacketHeader {
       .setOffsetInBlock(offsetInBlock)
       .setSeqno(seqno)
       .setLastPacketInBlock(lastPacketInBlock)
-      .setBaggage(Baggage.fork().toByteString())
+      .setBaggage(Baggage.fork().toByteString(MAX_BAGGAGE_SIZE))
       .setDataLen(dataLen);
       
     if (syncBlock) {
