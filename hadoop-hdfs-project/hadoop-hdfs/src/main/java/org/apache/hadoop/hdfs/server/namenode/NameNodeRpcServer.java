@@ -589,9 +589,11 @@ class NameNodeRpcServer implements NamenodeProtocols {
     LocatedBlocks result = namesystem.getBlockLocations(getClientMachine(), 
                                         src, offset, length);
     try {
-      Query7Advice2.advise(new Object[] { result.getLastLocatedBlock().getLocations()[0].getName() });
-      Query7Advice2.advise(new Object[] { result.getLastLocatedBlock().getLocations()[1].getName() });
-      Query7Advice2.advise(new Object[] { result.getLastLocatedBlock().getLocations()[2].getName() });
+      Query7Advice2.advise(new Object[] { 
+          result.getLastLocatedBlock().getLocations()[0].getName(), 
+          result.getLastLocatedBlock().getLocations()[1].getName(), 
+          result.getLastLocatedBlock().getLocations()[2].getName() 
+        });
     } catch (Exception e) {
       // Ignore PT exceptions
     }

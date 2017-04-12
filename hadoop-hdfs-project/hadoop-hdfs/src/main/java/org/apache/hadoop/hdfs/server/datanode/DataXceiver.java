@@ -93,8 +93,6 @@ import com.google.common.base.Preconditions;
 import com.google.protobuf.ByteString;
 
 import edu.brown.cs.systems.baggage.Baggage;
-import edu.brown.cs.systems.pivottracing2.Query7Advice3;
-import edu.brown.cs.systems.tracing.Utils;
 import edu.brown.cs.systems.tracing.aspects.Annotations.BaggageInheritanceDisabled;
 
 
