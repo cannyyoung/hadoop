@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdfs.server.datanode;
 
 
+import edu.brown.cs.systems.pivottracing.agent.PivotTracing;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_ADDRESS_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_ADDRESS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY;
@@ -2515,7 +2516,7 @@ public class DataNode extends ReconfigurableBase
       System.exit(0);
     }
     
-    // PivotTracing.initialize(); // PivotTracing: aspects should have done this automatically
+    PivotTracing.initialize(); // PivotTracing: aspects should have done this automatically
 
     secureMain(args, null);
   }

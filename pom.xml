@@ -39,11 +39,11 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
       <artifactId>xtrace-common</artifactId>
       <version>${tracingplane.version}</version>
     </dependency>
-<!--     <dependency>
+     <dependency>
       <groupId>edu.brown.cs.systems</groupId>
       <artifactId>pivottracing-common</artifactId>
       <version>${tracingplane.version}</version>
-    </dependency> -->
+    </dependency>
     <dependency>
       <groupId>edu.brown.cs.systems</groupId>
       <artifactId>pivottracing2-agent</artifactId>
@@ -64,11 +64,11 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
       <artifactId>xtrace-client</artifactId>
       <version>${tracingplane.version}</version>
     </dependency>
-    <!-- <dependency>
+    <dependency>
       <groupId>edu.brown.cs.systems</groupId>
       <artifactId>pivottracing-agent</artifactId>
       <version>${tracingplane.version}</version>
-    </dependency> -->
+    </dependency>
     <dependency>
       <groupId>edu.brown.cs.systems</groupId>
       <artifactId>retro-resources</artifactId>
@@ -89,11 +89,11 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
       <artifactId>xtrace-aspects</artifactId>
       <version>${tracingplane.version}</version>
     </dependency>
-<!--     <dependency>
+    <dependency>
       <groupId>edu.brown.cs.systems</groupId>
       <artifactId>pivottracing-aspects</artifactId>
       <version>${tracingplane.version}</version>
-    </dependency> -->
+    </dependency>
     <dependency>
       <groupId>edu.brown.cs.systems</groupId>
       <artifactId>retro-aspects</artifactId>
@@ -279,18 +279,18 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
               <groupId>edu.brown.cs.systems</groupId>
               <artifactId>tracingplane-aspects</artifactId>
             </aspectLibrary>
-            <aspectLibrary>
+            <!-- <aspectLibrary>
               <groupId>edu.brown.cs.systems</groupId>
               <artifactId>retro-aspects</artifactId>
             </aspectLibrary>
             <aspectLibrary>
               <groupId>edu.brown.cs.systems</groupId>
               <artifactId>xtrace-aspects</artifactId>
-            </aspectLibrary>
-<!--             <aspectLibrary>
+            </aspectLibrary> -->
+            <aspectLibrary>
               <groupId>edu.brown.cs.systems</groupId>
               <artifactId>pivottracing-aspects</artifactId>
-            </aspectLibrary> -->
+            </aspectLibrary> 
           </aspectLibraries>
         </configuration>
         <executions>

@@ -1680,11 +1680,11 @@ public class DFSOutputStream extends FSOutputSummer
       DataChecksum checksum, String[] favoredNodes) throws IOException {
     TraceScope scope =
         dfsClient.getPathTraceScope("newStreamForCreate", src);
-    try {
-      Query7Advice1.advise(new Object[] { Utils.getHost() });
-    } catch (Exception e) {
-      // Swallow PT exceptions
-    }
+//    try {
+//      Query7Advice1.advise(new Object[] { Utils.getHost() });
+//    } catch (Exception e) {
+//      // Swallow PT exceptions
+//    }
     try {
       HdfsFileStatus stat = null;
 

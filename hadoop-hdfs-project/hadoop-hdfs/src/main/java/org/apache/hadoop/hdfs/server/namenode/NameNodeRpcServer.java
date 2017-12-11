@@ -588,15 +588,16 @@ class NameNodeRpcServer implements NamenodeProtocols {
     metrics.incrGetBlockLocations();
     LocatedBlocks result = namesystem.getBlockLocations(getClientMachine(), 
                                         src, offset, length);
-    try {
-      Query7Advice2.advise(new Object[] { 
-          result.getLastLocatedBlock().getLocations()[0].getName(), 
-          result.getLastLocatedBlock().getLocations()[1].getName(), 
-          result.getLastLocatedBlock().getLocations()[2].getName() 
-        });
-    } catch (Exception e) {
-      // Ignore PT exceptions
-    }
+    // This is hard-coded advise to make it easier to test advice if needed.  Hacky that it's here, remove if you're reading this.
+//    try {
+//      Query7Advice2.advise(new Object[] { 
+//          result.getLastLocatedBlock().getLocations()[0].getName(), 
+//          result.getLastLocatedBlock().getLocations()[1].getName(), 
+//          result.getLastLocatedBlock().getLocations()[2].getName() 
+//        });
+//    } catch (Exception e) {
+//      // Ignore PT exceptions
+//    }
     return result;
   }
   

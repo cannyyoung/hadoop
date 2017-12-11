@@ -1526,11 +1526,11 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     checkOpen();
     //    Get block info from namenode
     TraceScope scope = getPathTraceScope("newDFSInputStream", src);
-    try {
-      Query7Advice1.advise(new Object[] { Utils.getHost() });
-    } catch (Exception e) {
-      // Swallow PT exceptions
-    }
+//    try {
+//      Query7Advice1.advise(new Object[] { Utils.getHost() });
+//    } catch (Exception e) {
+//      // Swallow PT exceptions
+//    }
     try {
       return new DFSInputStream(this, src, verifyChecksum);
     } finally {

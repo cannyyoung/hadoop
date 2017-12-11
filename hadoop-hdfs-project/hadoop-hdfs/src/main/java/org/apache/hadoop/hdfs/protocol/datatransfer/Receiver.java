@@ -117,11 +117,11 @@ public abstract class Receiver implements DataTransferProtocol {
     Baggage.join(proto.getHeader().getBaseHeader().getBaggage());
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
-    try {
-      Query7Advice3.advise(new Object[] { Utils.getHost() });
-    } catch (Exception e) {
-      // Ignore PT exception
-    }
+//    try {
+//      Query7Advice3.advise(new Object[] { Utils.getHost() });
+//    } catch (Exception e) {
+//      // Ignore PT exception
+//    }
     try {
       readBlock(PBHelper.convert(proto.getHeader().getBaseHeader().getBlock()),
         PBHelper.convert(proto.getHeader().getBaseHeader().getToken()),

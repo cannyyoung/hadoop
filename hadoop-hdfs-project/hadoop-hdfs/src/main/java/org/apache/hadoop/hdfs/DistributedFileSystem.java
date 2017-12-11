@@ -90,6 +90,7 @@ import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.crypto.key.KeyProviderDelegationTokenExtension;
+import edu.brown.cs.systems.pivottracing.agent.PivotTracing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -116,7 +117,7 @@ public class DistributedFileSystem extends FileSystem {
   
   static{
     HdfsConfiguration.init();
-    // PivotTracing.initialize();
+    PivotTracing.initialize();
   }
 
   public DistributedFileSystem() {
