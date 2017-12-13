@@ -279,14 +279,14 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
               <groupId>edu.brown.cs.systems</groupId>
               <artifactId>tracingplane-aspects</artifactId>
             </aspectLibrary>
-            <!-- <aspectLibrary>
+            <aspectLibrary>
               <groupId>edu.brown.cs.systems</groupId>
               <artifactId>retro-aspects</artifactId>
             </aspectLibrary>
             <aspectLibrary>
               <groupId>edu.brown.cs.systems</groupId>
               <artifactId>xtrace-aspects</artifactId>
-            </aspectLibrary> -->
+            </aspectLibrary>
             <aspectLibrary>
               <groupId>edu.brown.cs.systems</groupId>
               <artifactId>pivottracing-aspects</artifactId>
