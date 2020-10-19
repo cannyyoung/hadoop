@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.CreateFlag;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -49,6 +51,9 @@ import org.apache.hadoop.io.IOUtils;
 import static org.apache.hadoop.fs.CreateFlag.CREATE;
 import static org.apache.hadoop.fs.CreateFlag.LAZY_PERSIST;
 
+import edu.brown.cs.systems.xtrace.XTrace;
+import edu.brown.cs.systems.xtrace.logging.XTraceLogger;
+
 /**
  * Provides: argument processing to ensure the destination is valid
  * for the number of source arguments.  A processPaths that accepts both
@@ -61,6 +66,9 @@ abstract class CommandWithDestination extends FsCommand {
   private boolean verifyChecksum = true;
   private boolean writeChecksum = true;
   private boolean lazyPersist = false;
+
+  public static final Log LOG = LogFactory.getLog(CommandWithDestination.class);
+  public static final XTraceLogger xtrace = XTrace.getLogger(CommandWithDestination.class);
   
   /**
    * The name of the raw xattr namespace. It would be nice to use
@@ -390,6 +398,14 @@ abstract class CommandWithDestination extends FsCommand {
       targetFs.setWriteChecksum(writeChecksum);
       targetFs.writeStreamToFile(in, tempTarget, lazyPersist);
       targetFs.rename(tempTarget, target);
+
+      //log read/write sizes by using the scheme part of the uri of the path
+      if("hdfs".equals(target.fs.getUri().getScheme())){
+        xtrace.log("CommandWithDestination.java", "Writesize", target.fs.getLength(target.path));
+      }
+      if("file".equals(target.fs.getUri().getScheme())){
+        xtrace.log("CommandWithDestination.java", "Readsize", target.fs.getLength(target.path));
+      }
     } finally {
       targetFs.close(); // last ditch effort to ensure temp file is removed
     }
